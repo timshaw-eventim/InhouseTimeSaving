@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Event Time Helper</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background: #f2f3f8;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 30px 10px;
+    }
+
+#rows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: center;
+  width: 100%;             /* or a container width large enough for two blocks */
+  max-width: 1020px;       /* optional, roughly 2 x 496 + gap */
+  margin: 0 auto;          /* center the container */
+}
+
+
+.event-block {
+  flex: 0 0 496px;        /* fixed width to match "Add Another" behavior */
+  max-width: 496px;        /* ensure it doesn’t grow beyond this */
+  box-sizing: border-box;
+}
+
+
+
+input::placeholder {font-size:20px;color:#D3D3D3;line-height: 48px; }
+
+    h1 {
+      margin-bottom: 25px;
+      font-size: 28px;
+      color: #333;
+      text-align: center;
+    }
+    .event-block {
+      background: white;
+      border-radius: 14px;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+      padding: 30px 20px;
+      margin-bottom: 30px;
+      width: 100%;
+      max-width: 500px;
+      text-align: center;
+    }
+    .input-time {
+      font-size: 48px;
+      font-weight: bold;
+      padding: 12px 20px;
+      border-radius: 10px;
+      border: 2px solid #ccc;
+      width: 240px;
+      text-align: center;
+      margin-bottom: 25px;
+      background: #fff0ff;
+      color: #000;
+      line-height: 48px; 
+    }
+    .time-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .time-cell {
+      border-radius: 10px;
+      padding: 15px;
+      font-weight: bold;
+      font-size: 20px;
+      color: #111;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 80px;
+      width: 90%;
+    }
+    .fixed   { background: #fff7d6; }
+    .minus60 { background: #ffe0cc; }
+    .minus45a, .minus45b { background: #d8ecff; }
+    .asperf  { background: #dfffe2; }
+    .label {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 6px;
+    }
+    .output {
+      font-size: 26px;
+    }
+    #addRow {
+      background: #1976d2;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #addRow:hover {
+      background: #145ca1;
+    }
+  </style>
+</head>
+<body>
+  <h1> Blackpool Upsell Timings</h1>
+
+  <div id="rows"></div>
+
+  <button id="addRow">+ Add Another Event Time</button>
+
+<script>
+const OFFSETS = {
+  minus60: -60,
+  minus45a: -45,
+  minus45b: -45,
+  asperf: 0
+};
+
+// ---- Time utilities ----
+function parseInputToMinutes(s) {
+  if (!s) return null;
+  s = s.toString().trim();
+  if (s === '') return null;
+
+  const colon = s.match(/^(\d{1,2}):(\d{1,2})$/);
+  if (colon) {
+    let hh = +colon[1], mm = +colon[2];
+    if (hh<0||hh>23||mm<0||mm>59) return null;
+    return hh*60 + mm;
+  }
+
+  const digits = s.replace(/\D/g,'');
+  if (digits.length <= 2) return +digits*60;
+  if (digits.length === 3) return +(digits[0])*60 + +(digits.slice(1));
+  const mm = +digits.slice(-2);
+  const hh = +digits.slice(0, -2);
+  if (hh<0||hh>23||mm<0||mm>59) return null;
+  return hh*60 + mm;
+}
+
+function minutesToHHMM(m) {
+  if (m==null) return '--:--';
+  const total = ((m % (24*60)) + (24*60)) % (24*60);
+  const hh = Math.floor(total/60), mm = total%60;
+  return String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
+}
+
+function computeTimes(inputStr) {
+  const base = parseInputToMinutes(inputStr);
+  if (base==null) return {minus60:'--:--',minus45a:'--:--',minus45b:'--:--',asperf:'--:--'};
+  return {
+    minus60: minutesToHHMM(base + OFFSETS.minus60),
+    minus45a: minutesToHHMM(base + OFFSETS.minus45a),
+    minus45b: minutesToHHMM(base + OFFSETS.minus45b),
+    asperf: minutesToHHMM(base + OFFSETS.asperf)
+  };
+}
+
+// ---- UI ----
+let nextId=1;
+function addRow(initial='', focus=true) {
+  const id = nextId++;
+  const $row = $(`
+    <div class="event-block" data-id="${id}">
+      <input class="input-time" value="${initial}" placeholder="Add Event Start Time" />
+      <div class="time-grid">
+        <div class="time-cell fixed">
+        <div class="label">Transport</div>
+        <div class="output fixed-time">--:--</div>
+        </div>
+        <div class="time-cell minus60">
+          <div class="label">Eventim Lounge</div>
+          <div class="output minus60-time">--:--</div>
+        </div>
+        <div class="time-cell minus45a">
+          <div class="label">VIP Booth</div>
+          <div class="output minus45a-time">--:--</div>
+        </div>
+        <div class="time-cell minus45b">
+          <div class="label">Pre-show Wine</div>
+          <div class="output minus45b-time">--:--</div>
+        </div>
+        <div class="time-cell asperf">
+          <div class="label">Interval Wine</div>
+          <div class="output asperf-time">--:--</div>
+        </div>
+      </div>
+    </div>
+  `);
+  $('#rows').append($row);
+  $row.find('.input-time').on('input', () => updateRow($row));
+  if(focus) $row.find('.input-time').focus();   // only focus if true
+  updateRow($row);
+
+}
+
+
+
+function updateRow($row){
+  let val = $row.find('.input-time').val().trim();
+
+  // ---- Insert colon automatically if 4 digits typed ----
+  const digits = val.replace(/\D/g,''); // remove non-digits
+  if(digits.length === 4) {
+    let hh = digits.slice(0,2);
+    let mm = digits.slice(2,4);
+    // Cap hours and minutes to valid ranges
+    if(parseInt(hh) > 23) hh = '23';
+    if(parseInt(mm) > 59) mm = '59';
+    val = hh + ':' + mm;
+    $row.find('.input-time').val(val); // update input field
+  }
+
+  if(!val) {
+    // If input is empty, clear all outputs
+    $row.find('.fixed-time').text('--:--');
+    $row.find('.minus60-time').text('--:--');
+    $row.find('.minus45a-time').text('--:--');
+    $row.find('.minus45b-time').text('--:--');
+    $row.find('.asperf-time').text('--:--');
+    return;
+  }
+
+  const d = computeTimes(val);
+  $row.find('.fixed-time').text('12:00');  // always 12:00 once input exists
+  $row.find('.minus60-time').text(d.minus60);
+  $row.find('.minus45a-time').text(d.minus45a);
+  $row.find('.minus45b-time').text(d.minus45b);
+  $row.find('.asperf-time').text(d.asperf);
+}
+
+
+$(function(){
+  $('#addRow').on('click', ()=> addRow('', true));  // manual additions get focus
+  addRow('', false);  // first block, no focus
+  addRow('', false);  // second block, no focus
+  // optional: manually focus the first input
+  $('#rows .event-block:first .input-time').focus();
+});
+
+</script>
+</body>
+</html>
