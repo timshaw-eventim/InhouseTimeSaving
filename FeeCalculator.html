@@ -55,13 +55,13 @@ background-size: cover !important;
       background-color: #d4edda !important;
     }
 
-    ::placeholder {font-style: italic;color:red;}
+    ::placeholder {font-style: italic;}
 
   </style>
 </head>
 <body>
 
-<div style="text-align:center">
+  <div style="text-align:center">
 <a href="https://timshaw-eventim.github.io/InhouseTimeSaving/"><img src="https://testshop005.eventim-inhouse.co.uk/webshop/substituteplans/eventim_logo.jpg" style="width:200px;margin-bottom:20px;"></a>
 </div>
 
@@ -171,58 +171,75 @@ background-size: cover !important;
     return Number.isFinite(n)? n : 0;
   }
 
-  function recalcRow(tr){
-    const rrpInput = tr.querySelector('.rrp');
-    const rrpValRaw = rrpInput.value.trim();
-    const calcFaceCell = tr.querySelector('.calc-face');
-    const calcFaceDiv = calcFaceCell.querySelector('div');
-    const feeCell = tr.querySelector('.fee');
-    const coiCell = tr.querySelector('.coi');
-    const totalCell = tr.querySelector('.total');
+function recalcRow(tr){
+  const rrpInput = tr.querySelector('.rrp');
+  const rrpValRaw = rrpInput.value.trim();
+  const calcFaceCell = tr.querySelector('.calc-face');
+  const calcFaceDiv = calcFaceCell.querySelector('div');
+  const feeCell = tr.querySelector('.fee');
+  const coiCell = tr.querySelector('.coi');
+  const totalCell = tr.querySelector('.total');
 
-    if(rrpValRaw === ''){
-      calcFaceDiv.textContent = '';
-      calcFaceDiv.classList.remove('highlight');
-      feeCell.textContent = '';
-      coiCell.textContent = '';
-      totalCell.textContent = '';
-      return;
-    }
-
-    const rrp = parseFloat(rrpValRaw);
-    if(!Number.isFinite(rrp)){
-      calcFaceDiv.textContent = '';
-      calcFaceDiv.classList.remove('highlight');
-      feeCell.textContent = '';
-      coiCell.textContent = '';
-      totalCell.textContent = '';
-      return;
-    }
-
-    const reductionRaw = reductionInput.value;
-    const reductionAmount = parseReduction(reductionRaw, rrp);
-    let calcFace = rrp - reductionAmount;
-    if(!Number.isFinite(calcFace) || calcFace < 0) calcFace = 0;
-
-    const bookingPercent = parseFloat(bookingFeeInput.value);
-    const levy = parseFloat(levyInput.value);
-    const fee = (Number.isFinite(bookingPercent) ? (calcFace/100)*bookingPercent : 0);
-    const coi = fee + (Number.isFinite(levy) ? levy : 0);
-    const total = calcFace + coi;
-
-    calcFaceDiv.textContent = money(calcFace);
-    if(reductionRaw.trim() !== ''){
-      calcFaceDiv.classList.add('highlight');
-      document.getElementById("reduction").classList.add('reductionused');
-    } else {
-      calcFaceDiv.classList.remove('highlight');
-      document.getElementById("reduction").classList.remove('reductionused');
-    }
-
-    feeCell.textContent = money(fee);
-    coiCell.textContent = money(coi);
-    totalCell.textContent = money(total);
+  if(rrpValRaw === ''){
+    calcFaceDiv.textContent = '';
+    calcFaceDiv.classList.remove('highlight');
+    feeCell.textContent = '';
+    coiCell.textContent = '';
+    totalCell.textContent = '';
+    return;
   }
+
+  const rrp = parseFloat(rrpValRaw);
+  if(!Number.isFinite(rrp)){
+    calcFaceDiv.textContent = '';
+    calcFaceDiv.classList.remove('highlight');
+    feeCell.textContent = '';
+    coiCell.textContent = '';
+    totalCell.textContent = '';
+    return;
+  }
+
+  const reductionRaw = reductionInput.value;
+  const reductionAmount = parseReduction(reductionRaw, rrp);
+  let calcFace = rrp - reductionAmount;
+  if(!Number.isFinite(calcFace) || calcFace < 0) calcFace = 0;
+
+  // read inputs
+  const bookingPercent = parseFloat(bookingFeeInput.value) || 0;
+  const levy = parseFloat(levyInput.value) || 0;
+
+  // Work in pence (integer) to avoid floating point rounding issues
+  const calcFacePence = Math.round(calcFace * 100);               // e.g. 75.00 -> 7500
+  const levyPence = Math.round(levy * 100);                       // e.g. 1.95 -> 195
+
+  // fee in pence: fee = calcFace * bookingPercent / 100
+  // => feePence = round(calcFace * bookingPercent)
+  const feePence = Math.round(calcFace * bookingPercent);         // because *100 (pence) and /100 (percent) cancel out
+
+  const coiPence = feePence + levyPence;
+  const totalPence = calcFacePence + coiPence;
+
+  // convert back to display values
+  const fee = (feePence / 100);
+  const coi = (coiPence / 100);
+  const total = (totalPence / 100);
+
+  // display (use existing money() helper which does toFixed(2))
+  calcFaceDiv.textContent = money(calcFacePence / 100);
+  if(reductionRaw.trim() !== ''){
+    calcFaceDiv.classList.add('highlight');
+    document.getElementById("reduction").classList.add('reductionused');
+  } else {
+    calcFaceDiv.classList.remove('highlight');
+    document.getElementById("reduction").classList.remove('reductionused');
+  }
+
+  feeCell.textContent = money(fee);
+  coiCell.textContent = money(coi);
+  totalCell.textContent = money(total);
+}
+
+
 
   function addRow(initial){
     rowCount++;
@@ -313,4 +330,3 @@ background-size: cover !important;
 
 </body>
 </html>
-
