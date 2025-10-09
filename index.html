@@ -171,7 +171,7 @@ function addRow(initial='', focus=true) {
   const id = nextId++;
   const $row = $(`
     <div class="event-block" data-id="${id}">
-      <input class="input-time" value="${initial}" placeholder="Add Event Start Time" />
+      <input class="input-time" value="${initial}" placeholder="Add Event Start Time"  minlength="4" maxlength="5"/>
       <div class="time-grid">
         <div class="time-cell fixed">
         <div class="label">Transport</div>
