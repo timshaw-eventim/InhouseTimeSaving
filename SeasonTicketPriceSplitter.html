@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Season Ticket Price Splitter</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { padding: 2rem;       background: url("https://testshop005.eventim-inhouse.co.uk/webshop/substituteplans/eventim_background.jpg") no-repeat center center fixed !important;
+background-size: cover !important;}
+    .monospace { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace; }
+    input::-webkit-outer-spin-button,
+    input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type=number] {
+      -moz-appearance: textfield;
+    }
+        ::placeholder {font-style: italic;}
+  </style>
+</head>
+<body>
+
+  <div style="text-align:center">
+<a href="https://timshaw-eventim.github.io/InhouseTimeSaving/"><img src="https://testshop005.eventim-inhouse.co.uk/webshop/substituteplans/eventim_logo.jpg" style="width:200px;margin-bottom:20px;"></a>
+</div>
+
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-lg-6">
+        <div class="card shadow-sm">
+          <div class="card-body">
+  <h2 class="text-center mb-4">Season Ticket Price Splitter</h2>
+
+            <form id="splitForm" class="row g-3">
+              <div class="col-sm-7">
+                <label for="totalValue" class="form-label">Total value</label>
+                <input type="text" inputmode="decimal" class="form-control" id="totalValue" placeholder="e.g. 199.99">
+              </div>
+
+              <div class="col-sm-3">
+                <label for="eventsCount" class="form-label">Events</label>
+                <input type="number" class="form-control no-spinner" id="eventsCount" min="1" step="1" >
+              </div>
+
+              <div class="col-sm-2 d-flex align-items-end">
+                <button type="button" id="calcBtn" class="btn btn-primary w-100">Go</button>
+              </div>
+            </form>
+
+            <div id="alertContainer" class="mt-3"></div>
+
+            <div id="results" hidden class="mt-4">
+              <ul class="list-group mb-3">
+                <li class="list-group-item">Total: <strong id="summaryTotal" class="monospace"></strong></li>
+                <li class="list-group-item">Events: <strong id="summaryEvents" class="monospace"></strong></li>
+                <li class="list-group-item">Base per event: <strong id="summaryBase" class="monospace"></strong></li>
+                <li class="list-group-item">Remaining value: <strong id="summaryExtra" class="monospace"></strong></li>
+              </ul>
+
+              <h5>Breakdown</h5>
+              <ol id="breakdownList" class="list-group list-group-numbered"></ol>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const totalInput = document.getElementById('totalValue');
+  const eventsInput = document.getElementById('eventsCount');
+  const calcBtn = document.getElementById('calcBtn');
+  const alertContainer = document.getElementById('alertContainer');
+  const resultsBlock = document.getElementById('results');
+  const breakdownList = document.getElementById('breakdownList');
+
+  function showAlert(message, type='danger'){
+    alertContainer.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">${message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`;
+  }
+
+  function clearAlert(){ alertContainer.innerHTML = ''; }
+
+  function formatMoneyFromCents(cents){
+    const sign = cents < 0 ? '-' : '';
+    cents = Math.abs(cents);
+    const pounds = Math.floor(cents / 100);
+    const rest = cents % 100;
+    return `${sign}${pounds}.${rest.toString().padStart(2,'0')}`;
+  }
+
+  function parseMoneyToCents(str){
+    str = String(str).trim();
+    if(!/^[-+]?\d*(\.\d{0,2})?$/.test(str)) return null;
+    const f = parseFloat(str);
+    if(Number.isNaN(f)) return null;
+    return Math.round(f * 100);
+  }
+
+  function splitAmount(totalCents, events){
+    const base = Math.floor(totalCents / events);
+    const remainder = totalCents - base * events;
+    const parts = new Array(events).fill(base);
+    if(remainder > 0){
+      for(let i=0;i<remainder;i++){
+        parts[events - 1 - i] = parts[events - 1 - i] + 1;
+      }
+    } else if(remainder < 0){
+      for(let i=0;i<Math.abs(remainder);i++){
+        parts[events - 1 - i] = parts[events - 1 - i] - 1;
+      }
+    }
+    return {parts, base, remainder};
+  }
+
+  function renderResults(totalCents, events, parts, base, remainder){
+    breakdownList.innerHTML = '';
+    const counts = parts.reduce((acc, val) => {
+      acc[val] = (acc[val] || 0) + 1;
+      return acc;
+    }, {});
+
+    const uniqueValues = Object.keys(counts).map(Number).sort((a,b)=>a-b).map(String);
+    const colorPalette = ['#d1e7dd', '#cfe2ff', '#fff3cd', '#f8d7da', '#e2e3e5', '#e6e0ff', '#e8faf6'];
+    const valueColors = {};
+    uniqueValues.forEach((val, i) => {
+      valueColors[val] = colorPalette[i % colorPalette.length];
+    });
+
+    parts.forEach((p, idx) => {
+      const li = document.createElement('li');
+      li.className = 'list-group-item d-flex justify-content-between align-items-center';
+      // Highlight all values, including single-occurrence anomalies
+      li.style.backgroundColor = valueColors[p];
+      li.innerHTML = `<span>Event ${idx+1}</span><span class="monospace">${formatMoneyFromCents(p)}</span>`;
+      breakdownList.appendChild(li);
+    });
+
+    document.getElementById('summaryTotal').textContent = formatMoneyFromCents(totalCents);
+    document.getElementById('summaryEvents').textContent = events;
+    document.getElementById('summaryBase').textContent = formatMoneyFromCents(base);
+    document.getElementById('summaryExtra').textContent = remainder + 'p';
+
+    resultsBlock.hidden = false;
+  }
+
+  calcBtn.addEventListener('click', ()=>{
+    clearAlert();
+    resultsBlock.hidden = true;
+
+    const totalStr = totalInput.value;
+    const eventsVal = Number(eventsInput.value);
+
+    const totalCents = parseMoneyToCents(totalStr);
+    if(totalCents === null){ showAlert('Enter a valid amount (e.g. 199.99)'); return; }
+    if(!Number.isInteger(eventsVal) || eventsVal < 1){ showAlert('Enter a valid number of events.'); return; }
+
+    const {parts, base, remainder} = splitAmount(totalCents, eventsVal);
+    renderResults(totalCents, eventsVal, parts, base, remainder);
+  });
+
+  [totalInput, eventsInput].forEach(el=>{
+    el.addEventListener('keydown', (e)=>{ if(e.key === 'Enter'){ e.preventDefault(); calcBtn.click(); } });
+  });
+})();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
